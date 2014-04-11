@@ -1,0 +1,2 @@
+javac parser/*.java
+java parser.Parser data/wsj2-21.blt
