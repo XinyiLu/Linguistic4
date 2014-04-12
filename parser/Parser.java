@@ -266,7 +266,7 @@ public class Parser {
 		}
 		Cell cell=chart[pointer.beginPos][pointer.endPos];
 		CellConstituent comp=cell.cellMap.get(pointer.label);
-		str="("+pointer.label+debinarizeHelper(chart,comp.childPointers[0])+debinarizeHelper(chart,comp.childPointers[1]);
+		str="("+pointer.label+debinarizeHelper(chart,comp.childPointers[0])+debinarizeHelper(chart,comp.childPointers[1])+")";
 		return str;
 	}
 	
