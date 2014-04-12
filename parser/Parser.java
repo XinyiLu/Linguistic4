@@ -266,7 +266,19 @@ public class Parser {
 		}
 		Cell cell=chart[pointer.beginPos][pointer.endPos];
 		CellConstituent comp=cell.cellMap.get(pointer.label);
-		str="("+pointer.label+expressTreeHelper(chart,comp.childPointers[0])+expressTreeHelper(chart,comp.childPointers[1])+")";
+		if(pointer.label.contains("_")){
+			assert(pointer.label.equals(comp.childPointers[0].label+"_"+comp.childPointers[1].label));
+			str=expressTreeHelper(chart,comp.childPointers[0])+expressTreeHelper(chart,comp.childPointers[1]);
+			
+		}else if(comp.childPointers[0]==null&&comp.childPointers[1]==null){
+			str=" "+pointer.label;
+		}else{
+			String label=pointer.label;
+			if(pointer.label.endsWith("^")){
+				label=label.substring(0,label.length()-1);
+			}
+			str="("+label+expressTreeHelper(chart,comp.childPointers[0])+expressTreeHelper(chart,comp.childPointers[1])+")";
+		}
 		return str;
 	}
 	
@@ -275,6 +287,6 @@ public class Parser {
 		parser.readTrainingFile(args[0]);
 		//parser.printRuleMap();
 		parser.parseTestFile(args[1]);
-		System.out.println("Finished");
+		//System.out.println("Finished");
 	}
 }
