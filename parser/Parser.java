@@ -185,7 +185,7 @@ public class Parser {
 		}
 		
 		Cell[][] chart=parseLineToChart(words);
-		return debinarize(chart);
+		return expressTree(chart);
 	}
 	
 	public Cell[][] parseLineToChart(String[] words){
@@ -254,19 +254,19 @@ public class Parser {
 	}
 	
 	
-	public String debinarize(Cell[][] chart){
+	public String expressTree(Cell[][] chart){
 		CellPointer rootPointer=new CellPointer(rootLabel,0,chart.length-1);
-		return debinarizeHelper(chart,rootPointer);
+		return expressTreeHelper(chart,rootPointer);
 	}
 	
-	public String debinarizeHelper(Cell[][] chart,CellPointer pointer){
+	public String expressTreeHelper(Cell[][] chart,CellPointer pointer){
 		String str=new String();
 		if(pointer==null||(!chart[pointer.beginPos][pointer.endPos].cellMap.containsKey(pointer.label))){
 			return str;
 		}
 		Cell cell=chart[pointer.beginPos][pointer.endPos];
 		CellConstituent comp=cell.cellMap.get(pointer.label);
-		str="("+pointer.label+debinarizeHelper(chart,comp.childPointers[0])+debinarizeHelper(chart,comp.childPointers[1])+")";
+		str="("+pointer.label+expressTreeHelper(chart,comp.childPointers[0])+expressTreeHelper(chart,comp.childPointers[1])+")";
 		return str;
 	}
 	
