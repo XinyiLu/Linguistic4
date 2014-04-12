@@ -89,7 +89,8 @@ public class Parser {
 		}
 	}
 	
-	HashMap<String,HashSet<RuleConstituent>> ruleSet;
+	private HashMap<String,HashSet<RuleConstituent>> ruleSet;
+	private final static String rootLabel="TOP";
 	
 	public Parser(){
 		ruleSet=new HashMap<String,HashSet<RuleConstituent>>();
@@ -160,8 +161,34 @@ public class Parser {
 		}
 	}
 
-	public Cell[][] parseLineToChart(String line){
+	public void parseTestFile(String fileName){
+		try {
+			BufferedReader reader=new BufferedReader(new InputStreamReader(new FileInputStream(fileName),"ISO-8859-1"));
+			String line=null;
+			while((line=reader.readLine())!=null){
+				System.out.println(parseLineToTree(line));
+			}
+			//close the buffered reader
+			reader.close();
+			updateRhoMap();
+			
+		}catch(IOException e){
+			e.printStackTrace();
+		}
+	}
+	
+	
+	public String parseLineToTree(String line){
 		String[] words=line.split(" ");
+		if(words.length>25){
+			return "*IGNORE*";
+		}
+		
+		Cell[][] chart=parseLineToChart(words);
+		return debinarize(chart);
+	}
+	
+	public Cell[][] parseLineToChart(String[] words){
 		int length=words.length;
 		Cell[][] chart=initiateChart(length+1);
 		for(int l=1;l<=words.length;l++){
@@ -226,10 +253,28 @@ public class Parser {
 		
 	}
 	
+	
+	public String debinarize(Cell[][] chart){
+		CellPointer rootPointer=new CellPointer(rootLabel,0,chart.length-1);
+		return debinarizeHelper(chart,rootPointer);
+	}
+	
+	public String debinarizeHelper(Cell[][] chart,CellPointer pointer){
+		String str=new String();
+		if(pointer==null||(!chart[pointer.beginPos][pointer.endPos].cellMap.containsKey(pointer.label))){
+			return str;
+		}
+		Cell cell=chart[pointer.beginPos][pointer.endPos];
+		CellConstituent comp=cell.cellMap.get(pointer.label);
+		str="("+pointer.label+debinarizeHelper(chart,comp.childPointers[0])+debinarizeHelper(chart,comp.childPointers[1]);
+		return str;
+	}
+	
 	public static void main(String[] args){
 		Parser parser=new Parser();
 		parser.readTrainingFile(args[0]);
 		//parser.printRuleMap();
+		parser.parseTestFile(args[1]);
 		System.out.println("Finished");
 	}
 }
