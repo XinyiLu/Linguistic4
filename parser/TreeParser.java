@@ -8,36 +8,22 @@ import java.util.HashMap;
 import java.util.HashSet;
 
 
-
-public class Parser {
+public class TreeParser {
 	
-	@SuppressWarnings("rawtypes")
-	class RuleConstituent implements Comparable{
-		String[] childLabels;
+	class RuleConstituent{
+		String label;
 		double rho;
 		
-		public RuleConstituent()
+		public RuleConstituent(String l)
 		{
-			childLabels=new String[]{null,null};
+			label=l;
 			rho=0.0;
 		}
 		
-		public RuleConstituent(String left,String right,double prob){
-			childLabels[0]=left;
-			childLabels[1]=right;
+		public RuleConstituent(String l,double prob){
+			label=l;
 			rho=prob;
 		}
-		@Override
-		public int compareTo(Object o) {
-			RuleConstituent rule=(RuleConstituent)o;
-			for(int i=0;i<childLabels.length;i++){
-				if(!childLabels[i].equals(rule.childLabels[i])){
-					return -1;
-				}
-			}
-			return 0;
-		}
-		
 	}
 	
 	class CellPointer{
@@ -90,11 +76,13 @@ public class Parser {
 		}
 	}
 	
-	private HashMap<String,HashSet<RuleConstituent>> ruleSet;
+	private HashMap<String,HashMap<String,HashSet<RuleConstituent>>> ruleSet;
+	private HashMap<String,Integer> nodeCountMap;
 	private final static String rootLabel="TOP";
 	
-	public Parser(){
-		ruleSet=new HashMap<String,HashSet<RuleConstituent>>();
+	public TreeParser(){
+		ruleSet=new HashMap<String,HashMap<String,HashSet<RuleConstituent>>>();
+		nodeCountMap=new HashMap<String,Integer>();
 	}
 	
 	public void readTrainingFile(String fileName){
@@ -114,15 +102,13 @@ public class Parser {
 	}
 	
 	public void updateRhoMap(){
-		for(String parentNode:ruleSet.keySet()){
-			HashSet<RuleConstituent> childSet=ruleSet.get(parentNode);
-			double totalCount=0;
-			for(RuleConstituent comp:childSet){
-				totalCount+=comp.rho;
-			}
-			
-			for(RuleConstituent comp:childSet){
-				comp.rho=comp.rho/totalCount;
+		for(String leftLabel:ruleSet.keySet()){
+			HashMap<String,HashSet<RuleConstituent>> subset=ruleSet.get(leftLabel);
+			for(String rightLabel:subset.keySet()){
+				HashSet<RuleConstituent> rules=subset.get(rightLabel);
+				for(RuleConstituent rule:rules){
+					rule.rho=rule.rho/(nodeCountMap.get(rule.label)*1.0);
+				}
 			}
 		}
 	}
@@ -131,30 +117,21 @@ public class Parser {
 	public void parseTrainingLineToMap(String line){
 		String[] strs=line.split(" ");
 		assert(strs.length>3&&strs.length<6);
-		if(!ruleSet.containsKey(strs[1])){
-			ruleSet.put(strs[1],new HashSet<RuleConstituent>());
+		int count=Integer.parseInt(strs[0]);
+		RuleConstituent component=new RuleConstituent(strs[1],count);
+		String leftLabel=strs[3],rightLabel=(strs.length==4?null:strs[4]);
+		
+		if(!ruleSet.containsKey(leftLabel)){
+			ruleSet.put(leftLabel,new HashMap<String,HashSet<RuleConstituent>>());
 		}
 		
-		RuleConstituent component=new RuleConstituent();
-		for(int i=3;i<strs.length;i++){
-			component.childLabels[i-3]=strs[i];
+		HashMap<String,HashSet<RuleConstituent>> subset=ruleSet.get(leftLabel);
+		if(!subset.containsKey(rightLabel)){
+			subset.put(rightLabel,new HashSet<RuleConstituent>());
 		}
-		component.rho=Integer.parseInt(strs[0]);		
-		ruleSet.get(strs[1]).add(component);
-	}
-	
-	public void printRuleMap(){
-		for(String parentNode:ruleSet.keySet()){
-			System.out.println("--------------------------");
-			System.out.println(parentNode);
-			for(RuleConstituent comp:ruleSet.get(parentNode)){
-				for(String child:comp.childLabels){
-					System.out.print(child+"\t");
-				}
-				System.out.println(comp.rho);
-			}
-			System.out.println("--------------------------");
-		}
+		
+		subset.get(rightLabel).add(component);
+		nodeCountMap.put(strs[1],(nodeCountMap.containsKey(strs[1])?nodeCountMap.get(strs[1]):0)+count);
 	}
 
 	public void parseTestFile(String fileName){
@@ -216,39 +193,50 @@ public class Parser {
 		
 		for(int j=i+1;j<k;j++){
 			Cell leftCell=chart[i][j],rightCell=chart[j][k];
-			for(String parentNode:ruleSet.keySet()){
-				HashSet<RuleConstituent> childSet=ruleSet.get(parentNode);
-				for(RuleConstituent rule:childSet){
-					if(leftCell.cellMap.containsKey(rule.childLabels[0])&&rightCell.cellMap.containsKey(rule.childLabels[1])){
-						String leftLabel=rule.childLabels[0],rightLabel=rule.childLabels[1];
-						double mu=rule.rho*leftCell.cellMap.get(leftLabel).mu*rightCell.cellMap.get(rightLabel).mu;
-						CellConstituent comp=new CellConstituent(new CellPointer(leftLabel,i,j),new CellPointer(rightLabel,j,k),mu);
-						if(!(cell.cellMap.containsKey(parentNode)&&cell.cellMap.get(parentNode).mu>=mu)){
-							cell.cellMap.put(parentNode,comp);
+			for(String leftLabel:leftCell.cellMap.keySet()){
+				HashMap<String,HashSet<RuleConstituent>> ruleSubMap=ruleSet.get(leftLabel);
+				if(ruleSubMap==null)
+					continue;
+				for(String rightLabel:ruleSubMap.keySet()){
+					if(rightCell.cellMap.containsKey(rightLabel)){
+						HashSet<RuleConstituent> rules=ruleSubMap.get(rightLabel);
+						for(RuleConstituent rule:rules){
+							double mu=rule.rho*leftCell.cellMap.get(leftLabel).mu*rightCell.cellMap.get(rightLabel).mu;
+							CellConstituent comp=new CellConstituent(new CellPointer(leftLabel,i,j),new CellPointer(rightLabel,j,k),mu);
+							if(!(cell.cellMap.containsKey(rule.label)&&cell.cellMap.get(rule.label).mu>=mu)){
+								cell.cellMap.put(rule.label,comp);
+							}
 						}
 					}
 				}
-			}
+			}	
 		}
 		
 		
-		boolean check=true;
-		while(check){
-			int prevSize=cell.cellMap.size();
-			for(String parentNode:ruleSet.keySet()){
-				HashSet<RuleConstituent> childSet=ruleSet.get(parentNode);
-				for(RuleConstituent rule:childSet){
-					if(rule.childLabels[1]==null&&cell.cellMap.containsKey(rule.childLabels[0])){
-						String leftLabel=rule.childLabels[0];
-						double mu=rule.rho*cell.cellMap.get(leftLabel).mu;
-						CellConstituent comp=new CellConstituent(new CellPointer(leftLabel,i,k),null,mu);
-						if(!(cell.cellMap.containsKey(parentNode)&&cell.cellMap.get(parentNode).mu>=mu)){
-							cell.cellMap.put(parentNode,comp);
+		HashSet<String> searchSet=new HashSet<String>(cell.cellMap.keySet());
+		while(!searchSet.isEmpty()){
+			HashSet<String> addedSet=new HashSet<String>();
+			for(String leftLabel:searchSet){
+				HashMap<String,HashSet<RuleConstituent>> subset=ruleSet.get(leftLabel);
+				if(subset==null||!subset.containsKey(null))
+					continue;
+				HashSet<RuleConstituent> ruleSubMap=subset.get(null);
+				for(RuleConstituent rule:ruleSubMap){
+					double mu=rule.rho*cell.cellMap.get(leftLabel).mu;
+					CellConstituent comp=new CellConstituent(new CellPointer(leftLabel,i,k),null,mu);
+					if(!(cell.cellMap.containsKey(rule.label)&&cell.cellMap.get(rule.label).mu>=mu)){
+						if(!cell.cellMap.containsKey(rule.label)){
+							addedSet.add(rule.label);
 						}
+						cell.cellMap.put(rule.label,comp);
 					}
+					
 				}
+				
 			}
-			check=(prevSize==cell.cellMap.size()?false:true);
+			
+			searchSet=addedSet;
+			
 		}
 		
 	}
@@ -283,7 +271,7 @@ public class Parser {
 	}
 	
 	public static void main(String[] args){
-		Parser parser=new Parser();
+		TreeParser parser=new TreeParser();
 		parser.readTrainingFile(args[0]);
 		//parser.printRuleMap();
 		parser.parseTestFile(args[1]);
