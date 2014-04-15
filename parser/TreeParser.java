@@ -38,34 +38,22 @@ public class TreeParser {
 		}
 	}
 	
-	@SuppressWarnings("rawtypes")
-	class CellConstituent implements Comparable{
-		CellPointer[] childPointers;
+	class CellConstituent{
+		CellPointer leftPointer;
+		CellPointer rightPointer;
 		double mu;
 		
 		public CellConstituent(){
-			childPointers=new CellPointer[]{null,null};
+			leftPointer=null;
+			rightPointer=null;
 			mu=1.0;
 		}
 		
 		public CellConstituent(CellPointer left,CellPointer right,double prob){
-			childPointers=new CellPointer[]{left,right};
+			leftPointer=left;
+			rightPointer=right;
 			mu=prob;
 		}
-		@Override
-		public int compareTo(Object arg0) {
-			CellConstituent comp=(CellConstituent)arg0;
-			if(childPointers.length==comp.childPointers.length){
-				for(int i=0;i<childPointers.length;i++){
-					if(!childPointers[i].equals(comp.childPointers[i])){
-						return -1;
-					}
-				}
-				return 0;
-			}
-			return -1;
-		}
-		
 	}
 	
 	class Cell{
@@ -143,7 +131,6 @@ public class TreeParser {
 			}
 			//close the buffered reader
 			reader.close();
-			updateRhoMap();
 			
 		}catch(IOException e){
 			e.printStackTrace();
@@ -182,21 +169,19 @@ public class TreeParser {
 		return chart;
 	}
 	
-	
 	public void fillCell(Cell[][] chart,String[] words,int i,int k){
 		assert(i<k);
 		Cell cell=chart[i][k];
 		if(k==i+1){
-			assert(!cell.cellMap.containsKey(words[i]));
 			cell.cellMap.put(words[i],new CellConstituent());
 		}
 		
 		for(int j=i+1;j<k;j++){
 			Cell leftCell=chart[i][j],rightCell=chart[j][k];
 			for(String leftLabel:leftCell.cellMap.keySet()){
-				HashMap<String,HashSet<RuleConstituent>> ruleSubMap=ruleSet.get(leftLabel);
-				if(ruleSubMap==null)
+				if(!ruleSet.containsKey(leftLabel))
 					continue;
+				HashMap<String,HashSet<RuleConstituent>> ruleSubMap=ruleSet.get(leftLabel);
 				for(String rightLabel:ruleSubMap.keySet()){
 					if(rightCell.cellMap.containsKey(rightLabel)){
 						HashSet<RuleConstituent> rules=ruleSubMap.get(rightLabel);
@@ -212,7 +197,6 @@ public class TreeParser {
 			}	
 		}
 		
-		
 		HashSet<String> searchSet=new HashSet<String>(cell.cellMap.keySet());
 		while(!searchSet.isEmpty()){
 			HashSet<String> addedSet=new HashSet<String>();
@@ -225,18 +209,13 @@ public class TreeParser {
 					double mu=rule.rho*cell.cellMap.get(leftLabel).mu;
 					CellConstituent comp=new CellConstituent(new CellPointer(leftLabel,i,k),null,mu);
 					if(!(cell.cellMap.containsKey(rule.label)&&cell.cellMap.get(rule.label).mu>=mu)){
-						if(!cell.cellMap.containsKey(rule.label)){
-							addedSet.add(rule.label);
-						}
+						addedSet.add(rule.label);
 						cell.cellMap.put(rule.label,comp);
 					}
-					
 				}
 				
 			}
-			
 			searchSet=addedSet;
-			
 		}
 		
 	}
@@ -255,17 +234,16 @@ public class TreeParser {
 		Cell cell=chart[pointer.beginPos][pointer.endPos];
 		CellConstituent comp=cell.cellMap.get(pointer.label);
 		if(pointer.label.contains("_")){
-			assert(pointer.label.equals(comp.childPointers[0].label+"_"+comp.childPointers[1].label));
-			str=expressTreeHelper(chart,comp.childPointers[0])+expressTreeHelper(chart,comp.childPointers[1]);
+			str=expressTreeHelper(chart,comp.leftPointer)+expressTreeHelper(chart,comp.rightPointer);
 			
-		}else if(comp.childPointers[0]==null&&comp.childPointers[1]==null){
+		}else if(comp.leftPointer==null&&comp.rightPointer==null){
 			str=" "+pointer.label;
 		}else{
 			String label=pointer.label;
 			if(pointer.label.endsWith("^")){
 				label=label.substring(0,label.length()-1);
 			}
-			str="("+label+expressTreeHelper(chart,comp.childPointers[0])+expressTreeHelper(chart,comp.childPointers[1])+")";
+			str="("+label+expressTreeHelper(chart,comp.leftPointer)+expressTreeHelper(chart,comp.rightPointer)+")";
 		}
 		return str;
 	}
