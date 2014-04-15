@@ -7,6 +7,7 @@ import java.io.InputStreamReader;
 import java.util.HashMap;
 import java.util.HashSet;
 
+
 public class DoubleMap {
 	
 	class RuleSetMap{
@@ -25,50 +26,41 @@ public class DoubleMap {
 		}
 		
 		public HashSet<RuleConstituent> searchByChild(String lLabel,String rLabel,int index){
+			HashSet<RuleConstituent> resultSet=new HashSet<RuleConstituent>();
 			switch(index){
 			case SEARCH_BY_BOTH:
 				HashSet<String> leftParent=leftMap.get(lLabel);
 				HashSet<String> rightParent=rightMap.get(rLabel);
-				HashSet<String> parentSet=new HashSet<String>();
+				if(leftParent==null||rightParent==null){
+					break;
+				}
 				for(String left:leftParent){
 					if(rightParent.contains(left)){
-						parentSet.add(left);
+						resultSet.addAll(parentMap.get(left));
 					}
 				}
-				HashSet<RuleConstituent> results=new HashSet<RuleConstituent>();
-				for(String parent:parentSet){
-					results.addAll(parentMap.get(parent));
-				}
-				return results;
+				break;
 			case SEARCH_BY_LEFT:
 				HashSet<String> leftParents=leftMap.get(lLabel);
 				if(leftParents==null)
-					return null;
-				HashSet<RuleConstituent> leftResult=new HashSet<RuleConstituent>();
+					break;
 				for(String pLabel:leftParents){
-					HashSet<RuleConstituent> subSet=parentMap.get(pLabel);
-					if(subSet==null){
-						continue;
-					}
-					leftResult.addAll(subSet);
+					resultSet.addAll(parentMap.get(pLabel));
 				}
-				return leftResult;
+				break;
 			case SEARCH_BY_RIGHT:
 				HashSet<String> rightParents=rightMap.get(rLabel);
 				if(rightParents==null)
-					return null;
-				HashSet<RuleConstituent> rightResult=new HashSet<RuleConstituent>();
+					break;
 				for(String pLabel:rightParents){
-					HashSet<RuleConstituent> subSet=parentMap.get(pLabel);
-					if(subSet==null){
-						continue;
-					}
-					rightResult.addAll(subSet);
+					resultSet.addAll(parentMap.get(pLabel));
 				}
-				return rightResult;
+				break;
 			default:
-					return null;
+				break;
 			}
+			
+			return resultSet;
 		}
 
 	}
@@ -88,8 +80,7 @@ public class DoubleMap {
 		
 		public RuleConstituent(String label,String left,String right,double prob){
 			parentLabel=label;
-			childLabels[0]=left;
-			childLabels[1]=right;
+			childLabels=new String[]{left,right};
 			rho=prob;
 		}
 		@Override
@@ -169,16 +160,12 @@ public class DoubleMap {
 		try {
 			BufferedReader reader=new BufferedReader(new InputStreamReader(new FileInputStream(fileName),"ISO-8859-1"));
 			String line=null;
-			int lineCount=0;
 			while((line=reader.readLine())!=null){
 				parseTrainingLineToMap(line);
-				lineCount++;
 			}
 			//close the buffered reader
 			reader.close();
-			System.out.println("Line count:"+lineCount);
 			updateRhoMap();
-			
 		}catch(IOException e){
 			e.printStackTrace();
 		}
@@ -223,29 +210,18 @@ public class DoubleMap {
 		ruleSet.rightMap.get(rightLabel).add(parentLabel);
 	}
 	
-	/*public void printRuleMap(){
-		for(String parentNode:ruleSet.keySet()){
-			System.out.println("--------------------------");
-			System.out.println(parentNode);
-			for(RuleConstituent comp:ruleSet.get(parentNode)){
-				for(String child:comp.childLabels){
-					System.out.print(child+"\t");
-				}
-				System.out.println(comp.rho);
-			}
-			System.out.println("--------------------------");
-		}
-	}*/
-
 	public void parseTestFile(String fileName){
 		try {
 			BufferedReader reader=new BufferedReader(new InputStreamReader(new FileInputStream(fileName),"ISO-8859-1"));
 			String line=null;
+			int lineCount=0;
 			while((line=reader.readLine())!=null){
 				System.out.println(parseLineToTree(line));
+				lineCount++;
 			}
 			//close the buffered reader
 			reader.close();
+			System.out.println("Line Count:"+lineCount);
 			updateRhoMap();
 			
 		}catch(IOException e){
@@ -286,6 +262,12 @@ public class DoubleMap {
 	}
 	
 	
+	/**
+	 * @param chart
+	 * @param words
+	 * @param i
+	 * @param k
+	 */
 	public void fillCell(Cell[][] chart,String[] words,int i,int k){
 		assert(i<k);
 		Cell cell=chart[i][k];
@@ -297,13 +279,26 @@ public class DoubleMap {
 		for(int j=i+1;j<k;j++){
 			Cell leftCell=chart[i][j],rightCell=chart[j][k];
 			
-			//46s for 10 sentences
-			/*for(String leftLabel:leftCell.cellMap.keySet()){
-				HashSet<RuleConstituent> leftRuleSet=ruleSet.searchByChild(leftLabel, null, SEARCH_BY_LEFT);
-				for(RuleConstituent rule:leftRuleSet){
-					if(rightCell.cellMap.containsKey(rule.childLabels[1])){
+			for(String parentNode:ruleSet.parentMap.keySet()){
+				HashSet<RuleConstituent> childSet=ruleSet.parentMap.get(parentNode);
+				for(RuleConstituent rule:childSet){
+					if(leftCell.cellMap.containsKey(rule.childLabels[0])&&rightCell.cellMap.containsKey(rule.childLabels[1])){
+						String leftLabel=rule.childLabels[0],rightLabel=rule.childLabels[1];
+						double mu=rule.rho*leftCell.cellMap.get(leftLabel).mu*rightCell.cellMap.get(rightLabel).mu;
+						CellConstituent comp=new CellConstituent(new CellPointer(leftLabel,i,j),new CellPointer(rightLabel,j,k),mu);
+						if(!(cell.cellMap.containsKey(parentNode)&&cell.cellMap.get(parentNode).mu>=mu)){
+							cell.cellMap.put(parentNode,comp);
+						}
+					}
+				}
+			}
+			
+			/*for(String rightLabel:rightCell.cellMap.keySet()){
+				HashSet<RuleConstituent> rightRuleSet=ruleSet.searchByChild(null, rightLabel, SEARCH_BY_RIGHT);
+				for(RuleConstituent rule:rightRuleSet){
+					if(leftCell.cellMap.containsKey(rule.childLabels[0])){
 						//find the rule
-						String rightLabel=rule.childLabels[1];
+						String leftLabel=rule.childLabels[0];
 						double mu=rule.rho*leftCell.cellMap.get(leftLabel).mu*rightCell.cellMap.get(rightLabel).mu;
 						CellConstituent comp=new CellConstituent(new CellPointer(leftLabel,i,j),new CellPointer(rightLabel,j,k),mu);
 						if(!(cell.cellMap.containsKey(rule.parentLabel)&&cell.cellMap.get(rule.parentLabel).mu>=mu)){
@@ -314,27 +309,23 @@ public class DoubleMap {
 			}*/
 			
 			//48s for 10 sentences
-			for(String rightLabel:rightCell.cellMap.keySet()){
-				for(String leftLabel:leftCell.cellMap.keySet()){
+			/*for(String leftLabel:leftCell.cellMap.keySet()){
+				for(String rightLabel:rightCell.cellMap.keySet()){
 					HashSet<RuleConstituent> rules=ruleSet.searchByChild(leftLabel, rightLabel, SEARCH_BY_BOTH);
 					for(RuleConstituent rule:rules){
-						if(leftCell.cellMap.containsKey(rule.childLabels[0])){
-							//find the rule
-							double mu=rule.rho*leftCell.cellMap.get(leftLabel).mu*rightCell.cellMap.get(rightLabel).mu;
-							CellConstituent comp=new CellConstituent(new CellPointer(leftLabel,i,j),new CellPointer(rightLabel,j,k),mu);
-							if(!(cell.cellMap.containsKey(rule.parentLabel)&&cell.cellMap.get(rule.parentLabel).mu>=mu)){
-								cell.cellMap.put(rule.parentLabel,comp);
-							}
+						//find the rule
+						double mu=rule.rho*leftCell.cellMap.get(leftLabel).mu*rightCell.cellMap.get(rightLabel).mu;
+						CellConstituent comp=new CellConstituent(new CellPointer(leftLabel,i,j),new CellPointer(rightLabel,j,k),mu);
+						if(!(cell.cellMap.containsKey(rule.parentLabel)&&cell.cellMap.get(rule.parentLabel).mu>=mu)){
+							cell.cellMap.put(rule.parentLabel,comp);
 						}
+						
 					}
 				}
-			}
-			
-			
-			
+			}*/	
 		}
 		
-		/*for(String parentNode:ruleSet.parentMap.keySet()){
+		for(String parentNode:ruleSet.parentMap.keySet()){
 			HashSet<RuleConstituent> childSet=ruleSet.parentMap.get(parentNode);
 			for(RuleConstituent rule:childSet){
 				if(rule.childLabels[1]==null&&cell.cellMap.containsKey(rule.childLabels[0])){
@@ -346,20 +337,18 @@ public class DoubleMap {
 					}
 				}
 			}
-		}*/
+		}
 		
-		for(String leftLabel:cell.cellMap.keySet()){
-			HashSet<RuleConstituent> leftRules=ruleSet.searchByChild(leftLabel, null, SEARCH_BY_LEFT);
-			for(RuleConstituent rule:leftRules){
-				if(rule.childLabels[1]!=null)
-					continue;
+		/*for(String leftLabel:cell.cellMap.keySet()){
+			HashSet<RuleConstituent> rules=ruleSet.searchByChild(leftLabel, null, SEARCH_BY_BOTH);
+			for(RuleConstituent rule:rules){
 				double mu=rule.rho*cell.cellMap.get(leftLabel).mu;
 				CellConstituent comp=new CellConstituent(new CellPointer(leftLabel,i,k),null,mu);
 				if(!(cell.cellMap.containsKey(rule.parentLabel)&&cell.cellMap.get(rule.parentLabel).mu>=mu)){
 					cell.cellMap.put(rule.parentLabel,comp);
 				}
 			}
-		}
+		}*/
 	}
 	
 	
@@ -392,7 +381,7 @@ public class DoubleMap {
 	}
 	
 	public static void main(String[] args){
-		Parser parser=new Parser();
+		DoubleMap parser=new DoubleMap();
 		parser.readTrainingFile(args[0]);
 		//parser.printRuleMap();
 		parser.parseTestFile(args[1]);

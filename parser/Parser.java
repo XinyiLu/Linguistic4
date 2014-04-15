@@ -7,6 +7,7 @@ import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Set;
 
 
 
@@ -230,42 +231,27 @@ public class Parser {
 					}
 				}
 			}
-			
-		/*	for(String rightLabel:rightCell.cellMap.keySet()){
-				for(String leftLabel:leftCell.cellMap.keySet()){
-					RuleConstituent ruleComp=new RuleConstituent();
-					ruleComp.childLabels.add(leftLabel);
-					ruleComp.childLabels.add(rightLabel);
-					for(String parentLabel:ruleSet.keySet()){
-						for(RuleConstituent rule:ruleSet.get(parentLabel)){
-							if(leftLabel.equals(rule.childLabels.get(0))&&rightLabel.equals(rule.childLabels.get(1))){
-								double mu=rule.rho*leftCell.cellMap.get(leftLabel).mu*rightCell.cellMap.get(rightLabel).mu;
-								CellConstituent comp=new CellConstituent(new CellPointer(leftLabel,i,j),new CellPointer(rightLabel,j,k),mu);
-								if(!(cell.cellMap.containsKey(parentLabel)&&cell.cellMap.get(parentLabel).mu>=mu)){
-									cell.cellMap.put(parentLabel,comp);
-								}
-								break;
-							}
+		}
+		
+		
+		boolean check=true;
+		while(check){
+			int prevSize=cell.cellMap.size();
+			for(String parentNode:ruleSet.keySet()){
+				HashSet<RuleConstituent> childSet=ruleSet.get(parentNode);
+				for(RuleConstituent rule:childSet){
+					if(rule.childLabels[1]==null&&cell.cellMap.containsKey(rule.childLabels[0])){
+						String leftLabel=rule.childLabels[0];
+						double mu=rule.rho*cell.cellMap.get(leftLabel).mu;
+						CellConstituent comp=new CellConstituent(new CellPointer(leftLabel,i,k),null,mu);
+						if(!(cell.cellMap.containsKey(parentNode)&&cell.cellMap.get(parentNode).mu>=mu)){
+							cell.cellMap.put(parentNode,comp);
 						}
 					}
 				}
-			}*/
-		}
-		
-		for(String parentNode:ruleSet.keySet()){
-			HashSet<RuleConstituent> childSet=ruleSet.get(parentNode);
-			for(RuleConstituent rule:childSet){
-				if(rule.childLabels[1]==null&&cell.cellMap.containsKey(rule.childLabels[0])){
-					String leftLabel=rule.childLabels[0];
-					double mu=rule.rho*cell.cellMap.get(leftLabel).mu;
-					CellConstituent comp=new CellConstituent(new CellPointer(leftLabel,i,k),null,mu);
-					if(!(cell.cellMap.containsKey(parentNode)&&cell.cellMap.get(parentNode).mu>=mu)){
-						cell.cellMap.put(parentNode,comp);
-					}
-				}
 			}
+			check=(prevSize==cell.cellMap.size()?false:true);
 		}
-		
 		
 	}
 	
