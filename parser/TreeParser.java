@@ -4,6 +4,7 @@ import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 
@@ -67,6 +68,8 @@ public class TreeParser {
 	private HashMap<String,HashMap<String,HashSet<RuleConstituent>>> ruleSet;
 	private HashMap<String,Integer> nodeCountMap;
 	private final static String rootLabel="TOP";
+	String[] lineArray;
+	ArrayList<String> lineList;
 	
 	public TreeParser(){
 		ruleSet=new HashMap<String,HashMap<String,HashSet<RuleConstituent>>>();
@@ -104,7 +107,6 @@ public class TreeParser {
 	
 	public void parseTrainingLineToMap(String line){
 		String[] strs=line.split(" ");
-		assert(strs.length>3&&strs.length<6);
 		int count=Integer.parseInt(strs[0]);
 		RuleConstituent component=new RuleConstituent(strs[1],count);
 		String leftLabel=strs[3],rightLabel=(strs.length==4?null:strs[4]);
@@ -126,13 +128,33 @@ public class TreeParser {
 		try {
 			BufferedReader reader=new BufferedReader(new InputStreamReader(new FileInputStream(fileName),"ISO-8859-1"));
 			String line=null;
+			lineList=new ArrayList<String>();
 			while((line=reader.readLine())!=null){
-				System.out.println(parseLineToTree(line));
+				//System.out.println(parseLineToTree(line));
+				lineList.add(line);
 			}
 			//close the buffered reader
 			reader.close();
 			
-		}catch(IOException e){
+			lineArray=new String[lineList.size()];
+			//create multiple arrays
+			int processors=Runtime.getRuntime().availableProcessors();
+			Thread[] threads=new Thread[processors];
+			for(int i=0;i<processors;i++){
+				threads[i]=new Thread(new ConcurrentParser(this,i,processors));
+				threads[i].start();
+			}
+			
+			for(int i=0;i<processors;i++){
+				threads[i].join();
+				int length=lineList.size()/processors;
+				int offset=i*length,remain=(i==processors-1?lineList.size()%processors:0);
+				for(int j=offset;j<length+offset+remain;j++){
+					System.out.println(lineArray[j]);
+				}
+			}
+			
+		}catch(Exception e){
 			e.printStackTrace();
 		}
 	}
@@ -144,8 +166,7 @@ public class TreeParser {
 			return "*IGNORE*";
 		}
 		
-		Cell[][] chart=parseLineToChart(words);
-		return expressTree(chart);
+		return expressTree(parseLineToChart(words));
 	}
 	
 	public Cell[][] parseLineToChart(String[] words){
@@ -170,7 +191,6 @@ public class TreeParser {
 	}
 	
 	public void fillCell(Cell[][] chart,String[] words,int i,int k){
-		assert(i<k);
 		Cell cell=chart[i][k];
 		if(k==i+1){
 			cell.cellMap.put(words[i],new CellConstituent());
@@ -251,8 +271,6 @@ public class TreeParser {
 	public static void main(String[] args){
 		TreeParser parser=new TreeParser();
 		parser.readTrainingFile(args[0]);
-		//parser.printRuleMap();
 		parser.parseTestFile(args[1]);
-		//System.out.println("Finished");
 	}
 }
