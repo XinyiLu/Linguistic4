@@ -150,7 +150,7 @@ public class TreeParser {
 	}
 	
 	//parse test file and print out parsed tree strings (using multi-threads)
-	public void parseTestFile(String fileName){
+	public void parseTestFileConcurrent(String fileName){
 		try {
 			//firstly, read all the lines to ArrayList lineList
 			BufferedReader reader=new BufferedReader(new InputStreamReader(new FileInputStream(fileName),"ISO-8859-1"));
@@ -181,6 +181,22 @@ public class TreeParser {
 					System.out.println(lineArray[j]);
 				}
 			}
+			
+		}catch(Exception e){
+			e.printStackTrace();
+		}
+	}
+	
+	public void parseTestFile(String fileName){
+		try {
+			//firstly, read all the lines to ArrayList lineList
+			BufferedReader reader=new BufferedReader(new InputStreamReader(new FileInputStream(fileName),"ISO-8859-1"));
+			String line=null;
+			while((line=reader.readLine())!=null){
+				System.out.println(parseLineToTree(line));
+			}
+			//close the buffered reader
+			reader.close();
 			
 		}catch(Exception e){
 			e.printStackTrace();
@@ -299,6 +315,10 @@ public class TreeParser {
 	public static void main(String[] args){
 		TreeParser parser=new TreeParser();
 		parser.readTrainingFile(args[0]);
-		parser.parseTestFile(args[1]);
+		if(args.length>2&&args[2].equals("-s")){
+			parser.parseTestFile(args[1]);
+		}else{
+			parser.parseTestFileConcurrent(args[1]);
+		}
 	}
 }

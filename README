@@ -1,0 +1,20 @@
+					Parsing
+
+This project is named Parsing, which parses sentences into bracket expression of parse trees. There are two options to run: "parse" is the script to run the program using multiple threads when there is enough main memory; "single_parse" is the script to run the program using one thread. The first one takes about half the time it takes for the second one to finish, but about twice the memory.
+
+List of files:
+parser/TreeParser.java  The class that saves training file to rule map, parse all the sentences with words no more than 25 to parse trees, and save the bracket tree expressions in order. After reading the rest file into memory, it creates multiple threads to parse different sections of sentences of the file concurrently and save the results into an array according to their orders. I read the entire test file into memory instead of one sentence for each time to improve concurrency because this is a shared memory for the threads.
+
+parser/ConcurrentParser.java The class that implements Runnable, providing run() method to parse all the sentences that this thread is in charge of. 
+
+parse  The script to run the parser given training file, testing file and output file name. The output is not debinarized, so we need to use munge-trees under the eval directory to deal with it.
+
+single_parse The script to run the parser using just one thread. If there is not enough memory to run the above multi-threaded option, this is the other option to run this project using just one thread. It takes about seven minutes. 
+
+script The script to compile the program and run parse, and munge-tree to format. The default training file is data/wsj2-21.blt, testing file is data/wsj24.txt, while the output file is data/wsj24.tst. 
+
+To compile the project, run "javac parser/*.java"
+
+Performance:
+When parsing the file wsj24.txt, the total running time is about 3m30s. FMeasure is 75.43, while Tagging accuracy is 89.81.
+
