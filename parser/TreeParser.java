@@ -253,16 +253,16 @@ public class TreeParser {
 		}
 		Cell cell=chart[pointer.beginPos][pointer.endPos];
 		CellConstituent comp=cell.cellMap.get(pointer.label);
-		if(pointer.label.contains("_")){
+		/*if(pointer.label.contains("_")){
 			str=expressTreeHelper(chart,comp.leftPointer)+expressTreeHelper(chart,comp.rightPointer);
 			
-		}else if(comp.leftPointer==null&&comp.rightPointer==null){
+		}else */if(comp.leftPointer==null&&comp.rightPointer==null){
 			str=" "+pointer.label;
 		}else{
 			String label=pointer.label;
-			if(pointer.label.endsWith("^")){
+			/*if(pointer.label.endsWith("^")){
 				label=label.substring(0,label.length()-1);
-			}
+			}*/
 			str="("+label+expressTreeHelper(chart,comp.leftPointer)+expressTreeHelper(chart,comp.rightPointer)+")";
 		}
 		return str;

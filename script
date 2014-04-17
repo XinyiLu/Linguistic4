@@ -1,2 +1,4 @@
 javac parser/*.java
-java parser.Parser data/wsj2-21.blt
+./parse data/wsj2-21.blt data/wsj24.txt data/wsj24.temp
+cat data/wsj24.temp |./eval/munge-trees -rw >data/wsj24.tst
+rm data/wsj24.temp -f
