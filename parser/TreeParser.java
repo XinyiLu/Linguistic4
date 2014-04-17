@@ -11,6 +11,8 @@ import java.util.HashSet;
 
 public class TreeParser {
 	
+	//structure to save in the ruleSet
+	//it includes the parent label and rho for P(parent->(left, right))
 	class RuleConstituent{
 		String label;
 		double rho;
@@ -27,7 +29,9 @@ public class TreeParser {
 		}
 	}
 	
+	//structure for the cell's back pointer
 	class CellPointer{
+		//beginPos and endPos are the position of the cell in the chart
 		int beginPos;
 		int endPos;
 		String label;
@@ -38,12 +42,16 @@ public class TreeParser {
 			endPos=k;
 		}
 	}
-	
+
+	//sub-structure used in the cell
 	class CellConstituent{
+		//pointer to the left child cell
 		CellPointer leftPointer;
+		//pointer to the right child cell
 		CellPointer rightPointer;
 		double mu;
 		
+		//default constructor, used when a terminal word is come across
 		public CellConstituent(){
 			leftPointer=null;
 			rightPointer=null;
@@ -56,7 +64,9 @@ public class TreeParser {
 			mu=prob;
 		}
 	}
-	
+
+	//structure for the cell
+	//cellMap uses the label as its key and constituent with largest mu as value
 	class Cell{
 		HashMap<String,CellConstituent> cellMap;
 		
@@ -65,26 +75,39 @@ public class TreeParser {
 		}
 	}
 	
+	//map to save rules, key is the left child label, the key in submap is right child label
+	//the parent's label and rho is saved in corresponding RuleConstituent
 	private HashMap<String,HashMap<String,HashSet<RuleConstituent>>> ruleSet;
+	
+	//map to save the total number of each label appeared in the training label for the calculation of rho
 	private HashMap<String,Integer> nodeCountMap;
+	
 	private final static String rootLabel="TOP";
+	
+	//structure to save all the tree strings produced by the parser
 	String[] lineArray;
+	//structure to save strings from test file
 	ArrayList<String> lineList;
+	
 	
 	public TreeParser(){
 		ruleSet=new HashMap<String,HashMap<String,HashSet<RuleConstituent>>>();
 		nodeCountMap=new HashMap<String,Integer>();
 	}
 	
+	//function to parse training file to ruleSet
 	public void readTrainingFile(String fileName){
 		try {
 			BufferedReader reader=new BufferedReader(new InputStreamReader(new FileInputStream(fileName),"ISO-8859-1"));
 			String line=null;
 			while((line=reader.readLine())!=null){
+				//save each line to the map
 				parseTrainingLineToMap(line);
 			}
 			//close the buffered reader
 			reader.close();
+			
+			//calculate the rho of each rule
 			updateRhoMap();
 			
 		}catch(IOException e){
@@ -92,6 +115,7 @@ public class TreeParser {
 		}
 	}
 	
+	//function to calculate the rho of each rule
 	public void updateRhoMap(){
 		for(String leftLabel:ruleSet.keySet()){
 			HashMap<String,HashSet<RuleConstituent>> subset=ruleSet.get(leftLabel);
@@ -104,7 +128,7 @@ public class TreeParser {
 		}
 	}
 	
-	
+	//function to save the parent label, left child, right child and total count to ruleSet
 	public void parseTrainingLineToMap(String line){
 		String[] strs=line.split(" ");
 		int count=Integer.parseInt(strs[0]);
@@ -121,30 +145,34 @@ public class TreeParser {
 		}
 		
 		subset.get(rightLabel).add(component);
+		//save the count to rho temporarily
 		nodeCountMap.put(strs[1],(nodeCountMap.containsKey(strs[1])?nodeCountMap.get(strs[1]):0)+count);
 	}
-
+	
+	//parse test file and print out parsed tree strings (using multi-threads)
 	public void parseTestFile(String fileName){
 		try {
+			//firstly, read all the lines to ArrayList lineList
 			BufferedReader reader=new BufferedReader(new InputStreamReader(new FileInputStream(fileName),"ISO-8859-1"));
 			String line=null;
 			lineList=new ArrayList<String>();
 			while((line=reader.readLine())!=null){
-				//System.out.println(parseLineToTree(line));
 				lineList.add(line);
 			}
 			//close the buffered reader
 			reader.close();
-			
+			//create an array for the threads to save the result
 			lineArray=new String[lineList.size()];
-			//create multiple arrays
+			//get the number of available processors on the machine this program is running
 			int processors=Runtime.getRuntime().availableProcessors();
+			//create a thread on each processor to make fully use of the CPUs
 			Thread[] threads=new Thread[processors];
 			for(int i=0;i<processors;i++){
 				threads[i]=new Thread(new ConcurrentParser(this,i,processors));
 				threads[i].start();
 			}
 			
+			//wait for each thread to finish and print out the results in order
 			for(int i=0;i<processors;i++){
 				threads[i].join();
 				int length=lineList.size()/processors;
@@ -159,7 +187,7 @@ public class TreeParser {
 		}
 	}
 	
-	
+	//get parsed tree expression for the input string
 	public String parseLineToTree(String line){
 		String[] words=line.split(" ");
 		if(words.length>25){
@@ -169,6 +197,7 @@ public class TreeParser {
 		return expressTree(parseLineToChart(words));
 	}
 	
+	//parse the string to chart
 	public Cell[][] parseLineToChart(String[] words){
 		int length=words.length;
 		Cell[][] chart=initiateChart(length+1);
@@ -179,7 +208,7 @@ public class TreeParser {
 		}
 		return chart;
 	}
-	
+	//get and initiate the chart given length
 	public Cell[][] initiateChart(int length){
 		Cell[][] chart=new Cell[length][length];
 		for(int i=0;i<length;i++){
@@ -190,6 +219,9 @@ public class TreeParser {
 		return chart;
 	}
 	
+	//when finding rules that matches the left and right label, the order is
+	//first find all rules that suits the left label in left cell
+	//then go through each rule to check whether the right label is in right cell
 	public void fillCell(Cell[][] chart,String[] words,int i,int k){
 		Cell cell=chart[i][k];
 		if(k==i+1){
@@ -217,6 +249,7 @@ public class TreeParser {
 			}	
 		}
 		
+		//iterate until there is no label left to be added to the cell
 		HashSet<String> searchSet=new HashSet<String>(cell.cellMap.keySet());
 		while(!searchSet.isEmpty()){
 			HashSet<String> addedSet=new HashSet<String>();
@@ -240,12 +273,13 @@ public class TreeParser {
 		
 	}
 	
-	
+	//get the bracket expression given the chart
 	public String expressTree(Cell[][] chart){
 		CellPointer rootPointer=new CellPointer(rootLabel,0,chart.length-1);
 		return expressTreeHelper(chart,rootPointer);
 	}
 	
+	//function to recursively get the bracket expression
 	public String expressTreeHelper(Cell[][] chart,CellPointer pointer){
 		String str=new String();
 		if(pointer==null||(!chart[pointer.beginPos][pointer.endPos].cellMap.containsKey(pointer.label))){
@@ -253,21 +287,15 @@ public class TreeParser {
 		}
 		Cell cell=chart[pointer.beginPos][pointer.endPos];
 		CellConstituent comp=cell.cellMap.get(pointer.label);
-		/*if(pointer.label.contains("_")){
-			str=expressTreeHelper(chart,comp.leftPointer)+expressTreeHelper(chart,comp.rightPointer);
-			
-		}else */if(comp.leftPointer==null&&comp.rightPointer==null){
+		if(comp.leftPointer==null&&comp.rightPointer==null){
 			str=" "+pointer.label;
 		}else{
-			String label=pointer.label;
-			/*if(pointer.label.endsWith("^")){
-				label=label.substring(0,label.length()-1);
-			}*/
-			str="("+label+expressTreeHelper(chart,comp.leftPointer)+expressTreeHelper(chart,comp.rightPointer)+")";
+			str="("+pointer.label+expressTreeHelper(chart,comp.leftPointer)+expressTreeHelper(chart,comp.rightPointer)+")";
 		}
 		return str;
 	}
 	
+	//entrance for the parser
 	public static void main(String[] args){
 		TreeParser parser=new TreeParser();
 		parser.readTrainingFile(args[0]);
